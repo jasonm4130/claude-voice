@@ -52,7 +52,7 @@ def test_unknown_event_is_silent():
 
 
 def _run_hook(stdin: str, env: dict[str, str]) -> subprocess.CompletedProcess:
-    # PATH without uv: proves the hook exits 0 even when it cannot spawn the speaker.
+    # PATH without uv: the hook must still exit 0.
     clean = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE_VOICE")}
     clean.update(env, PATH="/nonexistent")
     return subprocess.run(

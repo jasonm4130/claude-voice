@@ -22,7 +22,6 @@ def voice_file() -> Path | None:
 
 
 def stop_playback() -> None:
-    """Stop the clip a previous call left playing, if any."""
     try:
         pid = int(PID_FILE.read_text())
     except (FileNotFoundError, ValueError):
@@ -35,8 +34,7 @@ def stop_playback() -> None:
 
 
 def load_tts():
-    """Load Phonon and the configured voice; return (tts, voice name or None)."""
-    import ptts  # imported late: loading it is the slow part
+    import ptts  # late: the import is slow, and `stop` and `doctor` checks should not pay for it
 
     tts = ptts.TTS(lang="en")
     custom = voice_file()
@@ -70,7 +68,6 @@ def speak(text: str) -> None:
 
 
 def doctor() -> int:
-    """Print one line per check; return 1 if any required check fails."""
     import shutil
 
     ok = True
@@ -109,7 +106,7 @@ def doctor() -> int:
         took = time.perf_counter() - start
         wav.unlink(missing_ok=True)
         report(True, "Phonon", f"loaded in {loaded:.2f} s; {seconds:.1f} s of speech in {took:.2f} s")
-    except Exception as exc:  # report, do not crash
+    except Exception as exc:
         report(False, "Phonon", f"{type(exc).__name__}: {exc}")
 
     return 0 if ok else 1

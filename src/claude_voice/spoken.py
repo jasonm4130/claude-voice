@@ -17,11 +17,7 @@ _SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 
 
 def spoken_text(reply: str, max_words: int = MAX_WORDS) -> str:
-    """Return what to say for `reply`, or "" when there is nothing worth saying.
-
-    A `<spoken>...</spoken>` block wins verbatim. Otherwise markdown, code and
-    URLs are stripped and whole sentences are kept up to `max_words`.
-    """
+    """A `<spoken>` block verbatim, else the reply stripped of markup and cut to whole sentences."""
     match = _SPOKEN.search(reply or "")
     if match:
         return _squash(match.group(1))
