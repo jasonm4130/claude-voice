@@ -18,6 +18,7 @@ A Claude Code plugin that speaks a short line when a turn ends or Claude needs y
 - `src/claude_voice/spoken.py`: turns a reply into a speakable line.
 - `src/claude_voice/hook.py`: chooses the line for an event, and applies the gate and settings.
 - `src/claude_voice/speak.py`: the `claude-voice` CLI (`say`, `stop`, `doctor`); loads Phonon and plays the audio.
+- `src/claude_voice/listen.py`: push-to-talk dictation (`claude-voice listen`). Its dependencies are the optional `listen` extra, imported inside functions so the speaking path and CI never need them.
 - `.claude-plugin/`: the plugin and marketplace manifests. Bump `version` in both files together.
 
 ## Checks

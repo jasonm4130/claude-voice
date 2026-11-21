@@ -10,6 +10,14 @@ dependencies = ["ptts==0.7.1"]
 [project.scripts]
 claude-voice = "claude_voice.speak:main"
 
+[project.optional-dependencies]
+listen = [
+    "mlx-audio==0.6.7",
+    "pynput==1.8.2",
+    "pyobjc-framework-cocoa==13.0",
+    "sounddevice==0.5.6",
+]
+
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.8"]
 
