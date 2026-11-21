@@ -27,5 +27,7 @@ jobs:
           import json
           a = json.load(open(".claude-plugin/plugin.json"))["version"]
           b = json.load(open(".claude-plugin/marketplace.json"))["plugins"][0]["version"]
-          assert a == b, f"plugin.json {a} != marketplace.json {b}"
+          import tomllib
+          c = tomllib.load(open("pyproject.toml", "rb"))["project"]["version"]
+          assert a == b == c, f"plugin.json {a}, marketplace.json {b}, pyproject.toml {c} differ"
           PY

@@ -1,6 +1,6 @@
 [project]
 name = "claude-voice"
-version = "0.1.0"
+version = "0.3.0"
 description = "Claude Code speaks its replies with a local Phonon voice."
 readme = "README.md"
 license = "MIT"

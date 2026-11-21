@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-11-22)
 
 - `claude-voice listen`: push-to-talk dictation. Hold right Option, speak, release, and the text is pasted where you type, without pressing Enter. Transcribed locally by Qwen3-ASR 0.6B (6-bit MLX); the key also stops speech. Install with `uv sync --extra listen`. Set the key with `CLAUDE_VOICE_HOTKEY`, the model with `CLAUDE_VOICE_STT_MODEL`.
 
