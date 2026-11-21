@@ -302,7 +302,6 @@ def main(file: str | None = None, do_paste: bool = False) -> int:
     if file:
         text = transcribe(load_wav(file))
         if not text:
-            print("no speech", file=sys.stderr)
             return 1
         print(text)
         if do_paste:
