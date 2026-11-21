@@ -1,0 +1,17 @@
+{
+  "name": "claude-voice",
+  "owner": { "name": "Jason Matthew", "url": "https://github.com/jasonm4130" },
+  "description": "The claude-voice plugin: spoken replies from Claude Code with a local voice.",
+  "plugins": [
+    {
+      "name": "claude-voice",
+      "source": "./",
+      "description": "Claude Code speaks a short version of each reply on your Mac, with a local Phonon voice.",
+      "version": "0.1.0",
+      "author": { "name": "Jason Matthew" },
+      "homepage": "https://github.com/jasonm4130/claude-voice",
+      "license": "MIT",
+      "category": "productivity"
+    }
+  ]
+}

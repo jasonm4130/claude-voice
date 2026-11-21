@@ -1,0 +1,10 @@
+{
+  "name": "claude-voice",
+  "description": "Claude Code speaks a short version of each reply on your Mac, with a local Phonon voice. Opt in per session with CLAUDE_VOICE=1.",
+  "version": "0.1.0",
+  "author": { "name": "Jason Matthew", "url": "https://github.com/jasonm4130" },
+  "homepage": "https://github.com/jasonm4130/claude-voice",
+  "repository": "https://github.com/jasonm4130/claude-voice",
+  "license": "MIT",
+  "keywords": ["voice", "tts", "phonon", "apple-silicon", "local"]
+}
