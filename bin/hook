@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Claude Code hook entry point: pick a line to say, hand it off, return at once.
-
-Runs under the system Python with the standard library only, so it starts in
-tens of milliseconds. The speaking happens in a detached child
-(`uv run claude-voice say`), so the hook never holds up the session. Silent
-unless the session was started with CLAUDE_VOICE=1.
-"""
+"""Hook entry point. Standard library only so it starts fast; speaking happens in a detached child."""
 
 import json
 import subprocess
@@ -24,7 +18,7 @@ def main() -> int:
     try:
         event = json.load(sys.stdin)
         text = text_for(event)
-    except Exception:  # a hook must never break the session
+    except Exception:  # the hook must never fail the session
         return 0
     if not text:
         return 0

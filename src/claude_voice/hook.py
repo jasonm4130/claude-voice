@@ -1,17 +1,11 @@
-"""Decide what a Claude Code hook event should say. Standard library only.
-
-The hook entry point (`bin/hook`) runs under the system Python on every turn,
-so this module must import nothing outside the standard library and must
-never raise.
-"""
+"""Decide what a hook event should say. Runs under the system Python on every turn: standard library only."""
 
 import os
 from collections.abc import Mapping
 
 from claude_voice.spoken import MAX_WORDS, spoken_text
 
-# Notification types worth interrupting you for. idle_prompt is left out on
-# purpose: it fires a minute after every reply and would talk over you.
+# idle_prompt is excluded on purpose: it fires a minute after every reply.
 NOTIFY_TYPES = {"permission_prompt", "elicitation_dialog", "elicitation_url_dialog"}
 
 
@@ -21,7 +15,6 @@ def enabled(env: Mapping[str, str] | None = None) -> bool:
 
 
 def text_for(event: dict, env: Mapping[str, str] | None = None) -> str:
-    """Return the line to speak for a hook event, or "" for silence."""
     if env is None:
         env = os.environ
     name = event.get("hook_event_name")
