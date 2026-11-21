@@ -119,7 +119,15 @@ def main(argv: list[str] | None = None) -> int:
     say.add_argument("text", nargs="*")
     sub.add_parser("stop", help="stop whatever is playing")
     sub.add_parser("doctor", help="check the setup and time a test line")
+    listen = sub.add_parser("listen", help="push-to-talk dictation (needs the listen extra)")
+    listen.add_argument("--file", help="transcribe this audio file instead of the mic, and print it")
+    listen.add_argument("--paste", action="store_true", help="with --file, also paste the text")
     args = parser.parse_args(argv)
+
+    if args.cmd == "listen":
+        from claude_voice import listen as ptt
+
+        return ptt.main(args.file, args.paste)
 
     if args.cmd == "stop":
         stop_playback()

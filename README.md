@@ -29,6 +29,7 @@ flowchart LR
 - macOS, with audio through `afplay`. Tested on Apple Silicon.
 - [uv](https://docs.astral.sh/uv/), which runs the speaker in its own environment.
 - Claude Code with plugin support
+- For push to talk: Apple Silicon, and about 900 MB for the speech-to-text model
 
 ## Install
 
@@ -59,6 +60,24 @@ uv run claude-voice stop
 ```
 
 `doctor` prints one line per check, ending with the Phonon load time, for example `ok   Phonon: loaded in 0.43 s; 2.1 s of speech in 0.18 s`.
+
+## Push to talk
+
+Hold a key, speak, let go: your words are transcribed on your Mac and pasted where you're typing, usually the Claude Code prompt. Nothing is submitted; you read it and press Enter. Pressing the key also cuts off any line being spoken, so it doubles as "be quiet".
+
+```shell
+cd claude-voice   # your clone
+uv sync --extra listen
+uv run --extra listen claude-voice listen
+```
+
+Leave it running in a spare terminal tab. The default key is right Option; holding it with another key (an Option chord) cancels the recording, so typing special characters still works. The first run downloads [Qwen3-ASR 0.6B](https://huggingface.co/mlx-community/Qwen3-ASR-0.6B-6bit) (6-bit MLX, about 860 MB) from Hugging Face. After that, a short clip is transcribed in about 0.15 s on an M5 Max.
+
+- **Permissions.** macOS asks for these for the terminal app that runs `listen`, not for Python: **Microphone**, plus **Accessibility** and **Input Monitoring** (to see the hotkey and send Cmd-V). Grant them in System Settings → Privacy & Security, then restart the terminal. Without Microphone access, macOS may hand over silence instead of an error; `listen` prints a hint when a clip is all zeros.
+- **How text gets in.** The text goes on the clipboard, `listen` sends Cmd-V, and your previous clipboard comes back a moment later. Pasting is a single event, so characters can't be dropped or reordered, and the terminal sees it as a paste rather than a stream of keystrokes. Newlines are flattened to spaces so a paste can't submit anything.
+- **Silence.** Leading and trailing silence is trimmed, and a clip with no speech is dropped rather than transcribed; the model tends to invent a word or two from room noise.
+- **Identifiers.** It hears `load_model` and `speak.py` when you say "load model" and "speak dot py", but check anything exact before you submit.
+- **Check it without the mic:** `uv run --extra listen claude-voice listen --file clip.wav` prints the transcript.
 
 ## Choosing a voice
 
@@ -106,6 +125,8 @@ The block also shows in the terminal.
 | `CLAUDE_VOICE_NAME` | unset | Catalog voice, used when no voice file exists |
 | `CLAUDE_VOICE_MAX_WORDS` | `35` | Word limit when there is no `<spoken>` block |
 | `CLAUDE_VOICE_NOTIFY` | `1` | `0` silences permission and input prompts |
+| `CLAUDE_VOICE_HOTKEY` | `alt_r` (right Option) | Push-to-talk key: a [pynput key name](https://pynput.readthedocs.io/en/latest/keyboard.html#pynput.keyboard.Key) or one character, joined with `+` for a combination, such as `ctrl+f13`. `right_option`, `right_command` and `right_control` also work |
+| `CLAUDE_VOICE_STT_MODEL` | `mlx-community/Qwen3-ASR-0.6B-6bit` | Speech-to-text model for `listen` |
 
 Each spoken line is appended to `~/.local/state/claude-voice/spoken.log`.
 
@@ -117,7 +138,7 @@ Each spoken line is appended to `~/.local/state/claude-voice/spoken.log`.
 
 ## Privacy
 
-Speech is generated locally. The hook reads only the payload Claude Code sends it (the final reply or the notification message) and writes only the log above and a temporary WAV file, deleted after playback. The one network call is the model download from Hugging Face.
+Speech is generated locally. The hook reads only the payload Claude Code sends it (the final reply or the notification message) and writes only the log above and a temporary WAV file, deleted after playback. The only network calls are the model downloads from Hugging Face. Push to talk records only while the key is held, transcribes in memory, and keeps neither audio nor text.
 
 ## Research
 
@@ -125,7 +146,6 @@ Speech is generated locally. The hook reads only the payload Claude Code sends i
 
 ## Roadmap
 
-- Push-to-talk dictation with a local speech-to-text model, such as Qwen3-ASR 0.6B on MLX
 - Spoken permission prompts that name the command and its effect
 
 ## Development
