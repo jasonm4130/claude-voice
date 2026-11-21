@@ -16,7 +16,7 @@ SAMPLE_RATE = 16_000
 DEFAULT_MODEL = "mlx-community/Qwen3-ASR-0.6B-6bit"
 DEFAULT_HOTKEY = "alt_r"
 FRAME_SECONDS = 0.03
-FLOOR_DB = -45.0  # quieter than this is room noise, whatever the clip's peak
+FLOOR_DB = -45.0
 BELOW_PEAK_DB = 35.0
 MIN_SPEECH_SECONDS = 0.2
 PAD_SECONDS = 0.15
@@ -125,7 +125,7 @@ def cached(model_id: str) -> str:
 
     try:
         return snapshot_download(model_id, local_files_only=True)
-    except Exception:  # not cached yet, or a local path: let mlx-audio fetch or open it
+    except Exception:
         return model_id
 
 
@@ -137,7 +137,7 @@ class Transcriber:
 
     def __call__(self, samples) -> str:
         if len(samples) < SAMPLE_RATE * MIN_SPEECH_SECONDS:
-            return ""  # a tap, not a hold
+            return ""
         if not samples.any():
             print(MIC_HINT, file=sys.stderr)
             return ""
@@ -247,7 +247,7 @@ def run(events: queue.Queue, recorder, transcribe, insert) -> None:
                 text = transcribe(recorder.stop())
                 if text:
                     insert(text)
-        except Exception as exc:  # one failed clip should not end the session
+        except Exception as exc:
             print(f"{event}: {type(exc).__name__}: {exc}", file=sys.stderr)
 
 
@@ -286,7 +286,7 @@ def main(file: str | None = None, do_paste: bool = False) -> int:
     try:
         if not file:
             keys = check_keys(parse_hotkey(os.environ.get("CLAUDE_VOICE_HOTKEY")))
-            listener = watch_hotkey(keys, events)  # before the model, so a missing permission shows at once
+            listener = watch_hotkey(keys, events)
             if not listener.running or not listener.IS_TRUSTED:
                 listener.stop()
                 print(INPUT_HINT, file=sys.stderr)

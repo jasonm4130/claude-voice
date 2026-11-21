@@ -32,7 +32,7 @@ def test_stt_model_override(monkeypatch):
 def test_hold_and_release():
     state = HotkeyState(("alt_r",))
     assert state.press("alt_r") == "start"
-    assert state.press("alt_r") is None  # key repeat
+    assert state.press("alt_r") is None
     assert state.release("alt_r") == "stop"
 
 
@@ -60,8 +60,8 @@ def test_speech_span():
 
 def test_speech_span_drops_noise_and_blips():
     assert speech_span([]) is None
-    assert speech_span([-60.0] * 100) is None  # under the absolute floor
-    assert speech_span([-70.0] * 50 + [-20.0] * 3 + [-70.0] * 50) is None  # a click, not speech
+    assert speech_span([-60.0] * 100) is None
+    assert speech_span([-70.0] * 50 + [-20.0] * 3 + [-70.0] * 50) is None
 
 
 def test_clean_text_never_submits():
@@ -131,7 +131,7 @@ def wer(ref, hyp):
 
 def test_short_tap_is_ignored_without_a_model(capsys):
     np = pytest.importorskip("numpy")
-    transcriber = listen.Transcriber.__new__(listen.Transcriber)  # no model: it must not be reached
+    transcriber = listen.Transcriber.__new__(listen.Transcriber)
     assert transcriber(np.zeros(0, np.float32)) == ""
     assert capsys.readouterr().err == ""
 
