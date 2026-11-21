@@ -2,7 +2,7 @@
 
 Claude Code says a short version of each reply out loud, on your Mac, in a voice you choose. Nothing leaves the machine: speech comes from [Phonon](https://huggingface.co/gradium/phonon-31m-en), a 31M-parameter local text-to-speech model.
 
-It is a `Stop` hook. When Claude finishes a turn, the hook takes the reply, keeps a `<spoken>…</spoken>` block if there is one, or else strips the markdown and code and keeps the first sentences up to about 35 words. It hands that to a detached speaker and returns at once. A new reply cuts off the one still playing.
+It is a `Stop` hook. When Claude finishes a turn, the hook takes the reply, keeps a `<spoken>…</spoken>` block if there is one, or else strips the markdown and code and keeps the first sentences up to about 35 words. It hands that to a detached speaker and returns at once. A new reply cuts off the one still playing. Each spoken line is logged to `~/.local/state/claude-voice/spoken.log`.
 
 ## Requirements
 

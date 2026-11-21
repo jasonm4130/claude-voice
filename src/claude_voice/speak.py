@@ -6,12 +6,14 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "claude-voice"
 STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state")) / "claude-voice"
 DEFAULT_VOICE_FILE = CONFIG_DIR / "voice.safetensors"
 PID_FILE = STATE_DIR / "player.pid"
+LOG_FILE = STATE_DIR / "spoken.log"
 
 
 def voice_file() -> Path | None:
@@ -53,6 +55,8 @@ def speak(text: str) -> None:
         else:
             tts.save(str(wav_path), text)
         stop_playback()
+        with LOG_FILE.open("a") as log:
+            log.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {text}\n")
         player = subprocess.Popen(["afplay", str(wav_path)])
         PID_FILE.write_text(str(player.pid))
         player.wait()
