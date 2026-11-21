@@ -1,6 +1,8 @@
 # Speech-to-speech and full-duplex: skip or augment the cascade?
 
-Researched 2026-11-22 via Parallel search (snippets only; nothing installed, nothing run). Claims are dated; figures are vendor-reported unless stated. Anything marked UNVERIFIED I could not confirm.
+Research snapshot, November 2026. Figures are from the cited sources unless marked as measured; nothing here was benchmarked by this project.
+
+Sources were read as web search snippets only; nothing was installed or run. Claims are dated; figures are vendor-reported unless stated. Anything marked UNVERIFIED I could not confirm.
 
 ## Recommendation
 
@@ -10,11 +12,11 @@ Why:
 1. Claude cannot be the speech model. As of Nov 2026 the Messages API has text and image input only; no audio content block, no speech endpoint (platform.claude.com API overview; SDK issue #1198 "audio input" closed not-planned 2026-08-06, "under consideration internally"). Claude app voice mode and Claude Code `/voice` are Anthropic's own voice offerings; `/voice` is dictation only, streams audio to Anthropic servers, needs a claude.ai login, and does not work over SSH. Claude Code and Cowork get dictation, not voice mode (Claude Help Center). So any "Claude talks to me" for Claude Code is text-in/text-out Claude plus someone else's ears and mouth.
 2. The latency that matters is Claude Code's (tool use, seconds to minutes), not the 200 to 500 ms an s2s model saves. S2S wins on turn-taking feel, backchannels, barge-in; those can be approximated in a cascade with streaming STT, semantic VAD and cached acknowledgements.
 3. S2S front models are the right shape only for the "speak while the agent works" gap. That exact pattern is now productised by OpenAI (GPT-Live-1 delegating to Codex), which validates it, but the productised version is cloud-only and fronts a non-Claude model.
-4. Fidelity risk: a front model re-narrates Claude's result. Its own 9B brain can paraphrase wrongly, and tool-call provenance is murky (see wiki page voice-agent-latency-architecture: "sleight of hand" background tool call). For a coding agent, the spoken summary must be Claude's words, not the front model's.
+4. Fidelity risk: a front model re-narrates Claude's result. Its own 9B brain can paraphrase wrongly, and tool-call provenance is murky (a "sleight of hand" background tool call). For a coding agent, the spoken summary must be Claude's words, not the front model's.
 
 ## Model table
 
-| Model | Type | Local on M5 Max 128 GB? | Latency (reported) | Cost | Tool calling / delegation | Brain quality | Licence |
+| Model | Type | Local on a high-memory Mac? | Latency (reported) | Cost | Tool calling / delegation | Brain quality | Licence |
 |---|---|---|---|---|---|---|---|
 | Kyutai Moshi (7B) | Full-duplex s2s | Yes, `moshi_mlx` 4/8-bit/bf16 (Kyutai repo) | 160 ms theoretical, ~200 ms on L4 | free | None. No tool channel | Poor. 4.3% on Big Bench Audio (llmconfigurator 2026-10-25, secondary source) | Code MIT/Apache, weights CC-BY 4.0 |
 | Kyutai Unmute | Cascade wrapper (Kyutai STT + any LLM + Kyutai TTS) | Reference stack is Linux/CUDA, 16 GB VRAM, x86_64 only. Kyutai STT/TTS models ship MLX. Community `unmute-mlx-bridge` (2026-07-26, pre-1.0) runs the servers on Mac: TTS q8 1.84x real time, time-to-first-audio 1.05 to 1.54 s; 4-bit corrupts the TTS | "Below a second" (Kyutai); ~450 ms TTS multi-GPU, ~750 ms single L40S; STT delay 500 ms, "flush trick" cuts to ~125 ms | free | Any text LLM, so Claude works; function-calling demos ("bye" hangs up) | Whatever LLM you plug in | MIT code; models CC-BY 4.0 |
@@ -35,7 +37,7 @@ Full-Duplex-Bench-v3 (arXiv 2604.04847, 2026-04-06) benchmarks tool use for full
 
 ## Architectural patterns compared
 
-| Pattern | Latency to first sound | Claude is the brain? | Local on M5 Max | Cost | Tool/delegation | Main risk |
+| Pattern | Latency to first sound | Claude is the brain? | Local on a high-memory Mac | Cost | Tool/delegation | Main risk |
 |---|---|---|---|---|---|---|
 | A. Pure cascade (streaming STT, Claude via Agent SDK/CLI, streaming TTS) | ~0.7 to 1.2 s to first audio, plus Claude's own TTFT; long silence during tool work unless filled | Yes, fully; speaks Claude's exact words | Yes (STT/TTS local; Claude is cloud either way) | Claude usage only | Native: it is Claude Code | Dead air during tool runs; weaker barge-in; needs echo handling |
 | B. Unmute-style wrapper (Kyutai STT + semantic VAD + any LLM + Kyutai TTS) | "Below a second" (Kyutai) | Yes | Partly: stock stack is CUDA/Linux only; community MLX bridge is pre-1.0, TTS RTF only ~1.8x on Mac | Free | Via the LLM | It is a cascade with better turn-taking; same dead-air problem; Mac port maturity |
@@ -51,16 +53,16 @@ Full-Duplex-Bench-v3 (arXiv 2604.04847, 2026-04-06) benchmarks tool use for full
 - Older Moshi-family models (Moshi, PersonaPlex) have no tool channel and weak reasoning; they are conversation-feel research, not a front for an agent.
 - Unmute does not get you away from the cascade; it is a well-tuned one. Its useful ideas to copy: semantic VAD (end-of-turn without cutting you off) and the STT "flush trick" (~500 ms to ~125 ms).
 
-## Suggested path for the user's use case
+## Suggested path
 
-1. Build the cascade (teammates' angle). Claude Code stays the brain; speech is a thin layer on top.
+1. Build the cascade (reports 1 to 4). Claude Code stays the brain; speech is a thin layer on top.
 2. Add the cheap parts of the hybrid inside the cascade: immediate local acknowledgement ("on it"), spoken progress lines driven by tool-use events, barge-in that cancels TTS and interrupts the Claude turn. This captures most of the front-model benefit with no second brain.
 3. Experiment, one afternoon: VoiceChat 11B MLX as the front with one tool `ask_claude_code(task)` and a rule that Claude's reply is read back verbatim or via TTS bypass (not paraphrased). Measure: echo/barge-in on laptop speakers, misrouted tool calls, whether it speaks over Claude's result.
-4. Do not pick cloud GPT-Live-1/Gemini Live unless local-first is relaxed; they are the best-polished version of C, but you would be sending voice to OpenAI/Google and fronting Claude with another vendor's model.
+4. Do not pick cloud GPT-Live-1/Gemini Live if audio must stay on the machine; they are the best-polished version of C, but you would be sending voice to OpenAI/Google and fronting Claude with another vendor's model.
 
 ## Biggest uncertainty
 
-Whether a local 9B full-duplex front (VoiceChat 11B) delegates reliably and stays out of Claude's way on an M5 Max; all numbers above are third-party, single-stream, hot-compute, and none test delegation to a coding agent. Second: Step-Audio and Nova 2 Sonic pricing were not verified.
+Whether a local 9B full-duplex front (VoiceChat 11B) delegates reliably and stays out of Claude's way on a high-memory Mac; all numbers above are third-party, single-stream, hot-compute, and none test delegation to a coding agent. Second: Step-Audio and Nova 2 Sonic pricing were not verified.
 
 ## Sources
 
@@ -82,4 +84,3 @@ Whether a local 9B full-duplex front (VoiceChat 11B) delegates reliably and stay
 - Amazon Nova 2 Sonic: https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-async-tools.html ; https://docs.aws.amazon.com/nova/latest/nova2-userguide/sonic-tool-configuration.html ; https://aws.amazon.com/blogs/aws/introducing-amazon-nova-2-sonic-next-generation-speech-to-speech-model-for-conversational-ai
 - Full-Duplex-Bench-v3: https://arxiv.org/html/2604.04847
 - Anthropic: https://support.claude.com/en/articles/11101966-using-voice-mode-on-claude ; https://claude.com/blog/think-through-hard-problems-in-voice-mode (2026-07-23) ; https://code.claude.com/docs/en/voice-dictation ; https://platform.claude.com/docs/en/api/overview ; https://github.com/anthropics/anthropic-sdk-python/issues/1198 ; https://platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk
-- Wiki: the local repos/llm-wiki/pages/voice-agent-latency-architecture.md ; voice-agent-failure-taxonomy.md

@@ -1,14 +1,16 @@
 # TTS models for a "Claude talks to me" layer (as of 2026-11-22)
 
-Scope: the user, M5 Max 128 GB, local-first. Nothing installed or run; every number is from a web page read 2026-11-22. "Vendor" = the maker's own claim. "Indep." = Coval, Cekura, Artificial Analysis (AA) or a third-party blog.
+Research snapshot, November 2026. Figures are from the cited sources unless marked as measured; nothing here was benchmarked by this project.
+
+Scope: text-to-speech for Claude Code replies on an Apple Silicon Mac, favouring local models. Nothing was installed or run; every number is from a web page read 2026-11-22. "Vendor" = the maker's own claim. "Indep." = Coval, Cekura, Artificial Analysis (AA) or a third-party blog.
 
 ## Bottom line
 
-1. Local pick: **Qwen3-TTS (Apache 2.0)**. Already works on this Mac, has streaming and incremental-text-input paths on MLX, and can clone or design an Australian voice. It needs a text-normalisation pre-pass and the ASR round trip, because of the TACO/Takeo failure.
+1. Local pick: **Qwen3-TTS (Apache 2.0)**. Runs on Apple Silicon via MLX, has streaming and incremental-text-input paths there, and can clone a voice or design one from a text description (for example an Australian voice). It needs a text-normalisation pre-pass and an ASR round trip, because all-caps acronyms are misread (one reported case: "TACO" read as "Takeo").
 2. Local second: **Phonon 31M (Gradium, Apache 2.0, Oct 2026)**. A 64 MB model that starts speaking in about 5-9 ms on Apple CPU (vendor). It is the latency floor for a local layer. Quality is below Qwen3-TTS and the voices are fixed.
 3. Cloud pick: **Inworld Realtime TTS-2 Flash**. Lowest independent first-audio, best independent score on numbers, codes and shorthand (about 93%), a WebSocket that takes LLM text as it is written, en-AU voices, $15 per 1M characters. Runner-up on naturalness: **ElevenLabs v4 Turbo**.
 
-Biggest uncertainty: no one has measured end-to-end time to first audio on THIS Mac for LLM-token-streamed input into Qwen3-TTS or Phonon. Published local numbers are M1/M3/M4 laptops, different harnesses, and one is a vendor claim.
+Biggest uncertainty: no one has measured end-to-end time to first audio on a current Apple Silicon Mac for LLM-token-streamed input into Qwen3-TTS or Phonon. Published local numbers are M1/M3/M4 laptops, different harnesses, and one is a vendor claim.
 
 ## Comparison table
 
@@ -41,32 +43,32 @@ TTFA = time to first audio. "Stream-in" = accepts incrementally arriving text (w
 
 - **Naturalness**: AA Speech Arena (blind votes, read 2026-11-22): Eleven v4 / v4 Turbo 1340, StepAudio 3 1307, Qwen-Audio-3.1-TTS-Plus 1298, Sonic 3.6 1294, Simba 3.5 1293, Gemini 3.8 Flash 1282, Fish Drama 3 1277. The top 2 are separated from the rest. Gaps under about 30 Elo are ties. TTS Arena V2 ranks differently (MiniMax Speech-02-HD, Gradium, Inworld 1.5 MAX on top), so no single leaderboard decides it.
 - **Open-weights gap**: the best open model on AA (Drama 3) needs a 35B server GPU. Models that run on a laptop (Phonon 1108, Voxtral 1094, Fish S2 Pro 1101) sit about 200 Elo below the cloud leaders. Qwen3-TTS 0.6B/1.7B and Kokoro are not on the AA open board. "Local sounds as good as cloud" is not supported by any source I found.
-- **Latency**: all cloud numbers exclude the trip from Australia (a Coval figure is from AWS us-east-1; a VerticalAI guide says vendor 75-100 ms figures are measured at the vendor's servers). Expect cloud first audio from AU to be vendor figure plus roughly 150-250 ms RTT (my estimate, not measured). A local model with 100-300 ms TTFA competes with cloud on real distance. The wiki's 300-550 ms voice-reply budget is for the whole turn (ASR end to first audio), so TTS should take under about 150 ms of it.
+- **Latency**: all cloud numbers exclude the network trip from the listener (a Coval figure is from AWS us-east-1; a VerticalAI guide says vendor 75-100 ms figures are measured at the vendor's servers). From Australia, expect cloud first audio to be vendor figure plus roughly 150-250 ms RTT (my estimate, not measured). A local model with 100-300 ms TTFA competes with cloud on real distance. The 300-550 ms voice-reply budget used here is for the whole turn (ASR end to first audio), so TTS should take under about 150 ms of it.
 - **Technical text** (Cekura "hard parts" = numbers, codes, abbreviations; scored by transcription, so acronyms said as words are excluded): Inworld 93%, ElevenLabs v4 94% / Turbo 80%, Fish S2.1-Pro 92%, Cartesia 75%, Gradium 80%. None of these tests file paths, camelCase identifiers or `snake_case`. Every source says normalise before TTS.
 - **Text normalisation** is the cheapest big win. EmergentTTS-Eval (NeurIPS 2025) found a GPT-4.1-mini normaliser lifted win rate from 51.7% to 76.7% on hard pronunciation, while a rule-based normaliser (WeText) made it worse (50.1%). Inworld and ElevenLabs both publish an LLM prompt for "speakable output". `speechready` (GitHub, 2026-10-27) cleans markdown/code fences/URLs and chunks streaming token feeds for TTS. Not tried.
 - **Australian English**: no local open model ships an AU preset (Kokoro is US/UK only; Phonon 31M is English with fixed voices). Real AU options: Cartesia (14 voices), Inworld (en-AU locale and named AU voices), Google (30 Chirp voices), Azure (19), Polly, ElevenLabs library. Locally, clone or VoiceDesign via Qwen3-TTS.
 
-## Ranked top 3 for this use case
+## Ranked top 3
 
-1. **Qwen3-TTS, local, via the native MLX path** (mlx-node or a patched mlx-audio). Reasons: it is already installed and verified; the only local model here with documented MLX streaming, incremental text input, cloning and voice-design together; Apache 2.0; 2.2 GB RSS. Risks: mlx-audio's own streaming may still be fake; acronym misreads; AU accent unproven; M4 RTF 0.54 is fine but the 1 s playback prebuffer pushes presented latency to 0.6 s.
+1. **Qwen3-TTS, local, via the native MLX path** (mlx-node or a patched mlx-audio). Reasons: the only local model here with documented MLX streaming, incremental text input, cloning and voice-design together; Apache 2.0; 2.2 GB RSS. Risks: mlx-audio's own streaming may still be fake; acronym misreads; AU accent unproven; M4 RTF 0.54 is fine but the 1 s playback prebuffer pushes presented latency to 0.6 s.
 2. **Inworld Realtime TTS-2 Flash, cloud.** Best fit for an LLM-token stream of technical prose. Use it when local quality is not enough or for a fast fallback. Risk: vendor-heavy evidence (Cekura numbers and the Inworld site quote each other, Coval and Stork are independent), data leaves the machine, AU round trip unmeasured.
 3. **Phonon 31M, local, as the low-latency fast path.** Use it for short acknowledgements ("on it", "done, tests pass") where 10 ms start beats voice quality, or as a stand-in while Qwen3-TTS spins up its first segment. Risk: vendor-only latency and accuracy; no AU voice; quality is mid.
 
 Cloud naturalness pick if cost is no object: ElevenLabs v4 Turbo ($40/1M). Its hard-parts score is the weaker one, so pair it with an LLM normaliser.
 
-## Experiments worth running (all cheap, on this Mac)
+## Experiments worth running (all cheap, on an Apple Silicon Mac)
 
-1. **Time-to-first-audio on this machine**: feed the same 3 reply lengths token-by-token (simulated 60 tok/s) into (a) mlx-audio 0.6.1 `stream=True` Qwen3-TTS 1.7B 8-bit, (b) mlx-node `synthesizeStream` incremental input, (c) Phonon 31M via `uvx ptts`, (d) Kokoro via mlx-audio. Record text-submit to first audible sample with a loopback capture, not the first yielded chunk. Settles whether mlx-audio's streaming is real, and what the 1 s prebuffer costs.
-2. **Acronym and technical-text battery** with the existing ASR round trip: 40 lines of real Claude Code output (paths, `snake_case`, `camelCase`, versions, hashes, PR numbers, TACO-style caps, ISO dates, `~/src`). Run raw vs after an LLM "speakable text" pass (Haiku-class, with the Inworld/ElevenLabs prompt as the base). Score WER and per-category failures for Qwen3-TTS, Phonon, Kokoro, Inworld Flash.
+1. **Time-to-first-audio on the target Mac**: feed the same 3 reply lengths token-by-token (simulated 60 tok/s) into (a) mlx-audio 0.6.1 `stream=True` Qwen3-TTS 1.7B 8-bit, (b) mlx-node `synthesizeStream` incremental input, (c) Phonon 31M via `uvx ptts`, (d) Kokoro via mlx-audio. Record text-submit to first audible sample with a loopback capture, not the first yielded chunk. Settles whether mlx-audio's streaming is real, and what the 1 s prebuffer costs.
+2. **Acronym and technical-text battery** with an ASR round trip: 40 lines of real Claude Code output (paths, `snake_case`, `camelCase`, versions, hashes, PR numbers, TACO-style caps, ISO dates, `~/src`). Run raw vs after an LLM "speakable text" pass (Haiku-class, with the Inworld/ElevenLabs prompt as the base). Score WER and per-category failures for Qwen3-TTS, Phonon, Kokoro, Inworld Flash.
 3. **AU voice**: Qwen3-TTS VoiceDesign ("Australian male, relaxed, Australia") and a Base clone from a short consented sample. Compare against Inworld Banjo/Callum and Cartesia Arlo/Ella. Judge by ear, then ASR-check.
 4. **Sentence-chunking policy**: how many tokens or which punctuation to wait for before sending to TTS. This sets perceived latency more than the model choice. Compare commit-on-sentence vs commit-on-clause (mlx-node default 256 graphemes; Gradium's multi-turn pattern reuses one WebSocket).
-5. **Cloud RTT check**: from Australia, measure first audio for Inworld, ElevenLabs Flash/Turbo, Cartesia, Gradium over WebSocket, p50 and p95 over 30 runs. Vendor figures will not hold.
+5. **Cloud RTT check**: from your own region (for example Australia), measure first audio for Inworld, ElevenLabs Flash/Turbo, Cartesia, Gradium over WebSocket, p50 and p95 over 30 runs. Vendor figures will not hold.
 6. **Optional**: ZONOS3-Mini on MLX (new, 2026-11-09, vendor under 150 ms on M3 Air) and Kyutai TTS 1.6B MLX backend as true text-streaming local alternatives.
 
 ## Gaps, flagged
 
 - Apple AVSpeechSynthesizer, Personal Voice and macOS 26 Siri voices: not researched this session, row is background knowledge. Worth a 10-minute check as a zero-dependency fallback and a latency baseline.
-- Qwen3-TTS technical-text accuracy has no independent figure beyond the wiki's one TACO/Takeo case.
+- Qwen3-TTS technical-text accuracy has no independent figure beyond one reported TACO/Takeo misread.
 - `Qwen-Audio-3.1-TTS-Plus` (cloud) ranks #3-4 on AA but is a different product from the open Qwen3-TTS weights. Do not read the cloud score as the local model's quality.
 - Several roundup blogs (vdf.ai, webdiga, micdrop, builderai) are secondary and sometimes contradict each other on licences (Chatterbox retired Aug 2026 per vdf.ai). Check model cards before adopting.
 - The Cekura benchmark covers its own sponsor-adjacent vendors (Inworld leads its own hard-parts table); Stork and Coval corroborate Inworld's latency but not its accuracy lead.

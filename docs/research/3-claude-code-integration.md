@@ -1,5 +1,8 @@
 # Voice layer x Claude Code: integration surfaces and prior art
-Researched 2026-11-22. Docs read 2026-11-21/22 (code.claude.com). Repo stats via `gh` on 2026-11-22.
+
+Research snapshot, November 2026. Figures are from the cited sources unless marked as measured; nothing here was benchmarked by this project.
+
+Docs read 2026-11-21/22 (code.claude.com). Repo stats via `gh` on 2026-11-22.
 
 ## 0. Built-in voice (as of Nov 2026)
 - Claude Code has `/voice` = dictation only (STT into the prompt, hold/tap Space, `voice.autoSubmit` setting, rebindable via `voice:pushToTalk`). Transcription runs on Anthropic's servers, needs a claude.ai login (not API key/Bedrock), 20 languages. Also works in agent view peek/reply and the VS Code extension.
@@ -18,7 +21,7 @@ Researched 2026-11-22. Docs read 2026-11-21/22 (code.claude.com). Repo stats via
 | Output style / CLAUDE.md | n/a | n/a | Trivial | Make replies short, speakable, no tables/code; put a 1-2 sentence "spoken summary" first. This is the main quality lever for TTS |
 | Status line | Polled, not a stream | No | Low | Only for a listening/speaking indicator |
 | MCP server (VoiceMode `converse` style) | Claude calls a tool; tool speaks text and blocks while recording the user's answer. Streaming only as far as the model writes the tool arg | Indirect: Claude must call the tool; the user speech comes back as the tool result. Not usable to interrupt a running turn | Medium | VoiceMode's model. Fragile: cancelled converse calls leave playback running / disconnect Claude Code (open issues Oct 2026) |
-| Channels (`claude --channels`, MCP server with `experimental['claude/channel']`) | Claude replies via a `reply` tool (text per call, not token stream) | YES. `notifications/claude/channel` pushes an event into the already-running local session, arrives as `<channel>` message. Two-way with reply tool; can relay permission prompts (`claude/channel/permission`, "yes abcde" verdicts) | Medium | Official, documented path for chat bridges (Telegram/Discord/iMessage). Needs claude.ai login + session opt-in flag; org controls on Team/Enterprise. Sender gating is your job. Best fit for "voice daemon pushes transcript into my real session and speaks the reply tool call". Marked research-preview-ish; confirm status |
+| Channels (`claude --channels`, MCP server with `experimental['claude/channel']`) | Claude replies via a `reply` tool (text per call, not token stream) | YES. `notifications/claude/channel` pushes an event into the already-running local session, arrives as `<channel>` message. Two-way with reply tool; can relay permission prompts (`claude/channel/permission`, "yes abcde" verdicts) | Medium | Official, documented path for chat bridges (Telegram/Discord/iMessage). Needs claude.ai login + session opt-in flag; org controls on Team/Enterprise. Sender gating is your job. Best fit for "voice daemon pushes transcript into a real session and speaks the reply tool call". Marked research-preview-ish; confirm status |
 | Mods (plugin with JS hooks inside Claude Code) | Can follow a turn (`Follow a turn` events), draw panes | YES: docs list "submit a prompt as if you had typed it" and send message to another session. softcery voice-relay uses a mod that long-polls a local server and submits tasks as prompts | Medium | Early-access API, can change. Runs in terminal/Desktop/VS Code; `claude -p`/SDK run the hooks but draw nothing. In-process so most powerful, least stable |
 | `claude -p --output-format stream-json --verbose --include-partial-messages` | YES: `stream_event` `text_delta` tokens, then final `result` | `--input-format stream-json` keeps stdin open for further user messages in ONE headless session (not an existing interactive TUI) | Medium | TapQ uses this (Claude as stream-json delegate). Loses the TUI. `--resume <id>` can pick up a TUI session by id later, but not concurrently |
 | Agent SDK (TS `query()` w/ async generator; Python `ClaudeSDKClient`) | YES: partial messages / text deltas; `interrupt()` for barge-in; messages sent mid-tool-call are delivered after tool calls finish (or `priority`) | Own your session (headless). Can `resume` a session id | Medium | Cleanest for a custom voice app and barge-in. Proven by larryhudson/claude-code-voice-agent (LiveKit `llm_node` -> ClaudeSDKClient) and Pipecat's "Voice Code Assistant" example (voice LLM + Claude Agent SDK code agent) |
@@ -61,7 +64,7 @@ Dictation apps (STT-only, system-wide typing; work in any terminal)
 | VoiceInk (Beingpax) | local whisper.cpp, Apple silicon | $25 one-time; 7,176 stars, pushed 2026-11-11 | GPL-3 (GitHub shows "other"); can build from source free |
 | OpenSuperWhisper (Starmel) | local | free, MIT, 3,166 stars, pushed 2026-11-17 | Open alternative |
 | Handy | local, free, cross-platform | free | Named best free local option in a Jul 2026 comparison |
-| Wispr Flow | cloud only | $15/mo | Cloud; avoid given local-first |
+| Wispr Flow | cloud only | $15/mo | Cloud; avoid if local-only is required |
 | Apple Dictation | on-device if enhanced dictation enabled | free | Weak on technical terms, per Qiita comparison |
 | Claude Code `/voice` | Anthropic cloud | included, needs claude.ai login | Free STT, nothing local |
 
@@ -69,14 +72,14 @@ Complaints seen: names/jargon misheard by local STT (voice-relay, Apple dictatio
 
 ## 3. Recommended architecture
 
-Build a thin custom layer, borrowing from voice-relay/TapQ/Heard, rather than adopting VoiceMode wholesale. Reasons: the user wants local-first and works in real interactive sessions with hooks/plugins; VoiceMode's MCP-converse model needs Claude to call a tool each turn, has no barge-in, and has open stability bugs; voice-relay is 1 star and rides an unstable API; Heard's input half is closed.
+Build a thin custom layer, borrowing from voice-relay/TapQ/Heard, rather than adopting VoiceMode wholesale. Reasons: a local-first layer that works in real interactive sessions with hooks/plugins is a poor fit for VoiceMode, whose MCP-converse model needs Claude to call a tool each turn, has no barge-in, and has open stability bugs; voice-relay is 1 star and rides an unstable API; Heard's input half is closed.
 
 Phase 1 (an afternoon, zero risk): output + input separate.
 - Input: keep `/voice` or run VoiceInk/OpenSuperWhisper/Handy (local) typing into the terminal. Optional later: `voice.autoSubmit`.
 - Output: a `Stop` hook (async, returns instantly) that POSTs `last_assistant_message` to a local daemon (launchd) which strips code/tables/URLs, optionally summarises with a local small model or the "first sentence" convention, and speaks via local TTS (Kokoro/Piper/Pocket TTS). Add a `Notification` hook to speak permission requests. Add a short CLAUDE.md/output-style rule: "start every reply with a one-sentence spoken summary; no tables in that sentence". Fork Null-Phnix/claude-voice (MIT) or Heard's engine (Apache) as the starting point.
 
 Phase 2 (hands-free loop in the real session): channel plugin.
-- Write a small MCP channel server (documented contract, `claude --channels`) fed by a local always-on daemon: mic -> VAD -> local STT (Whisper/Parakeet-class, other teammates cover model choice) -> `notifications/claude/channel`; replies come back through the `reply` tool and are spoken sentence by sentence; permission relay used for spoken "yes/no <id>". Gate on sender (localhost token). This injects into the live interactive session, keeps hooks, CLAUDE.md, MCP and subagents intact.
+- Write a small MCP channel server (documented contract, `claude --channels`) fed by a local always-on daemon: mic -> VAD -> local STT (Whisper/Parakeet-class, model choice is covered in report 1) -> `notifications/claude/channel`; replies come back through the `reply` tool and are spoken sentence by sentence; permission relay used for spoken "yes/no <id>". Gate on sender (localhost token). This injects into the live interactive session, keeps hooks, CLAUDE.md, MCP and subagents intact.
 - If channels prove unavailable (login/org gating) fall back to a mod that submits prompts (voice-relay's trick) or tmux send-keys.
 
 Phase 3 (only if token-level latency or barge-in matters): headless session owner via Agent SDK.

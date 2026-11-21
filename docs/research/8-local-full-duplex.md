@@ -1,12 +1,14 @@
 # Local full-duplex front for "Claude talks to me": November 2026 sweep
 
-Researched 2026-11-22. Read-only: model cards, READMEs, changelogs, GitHub issues, one NVIDIA source file, HF API listings, `gh` stats. Nothing downloaded, installed or run. Tags: **[vendor]** = the model's own authors; **[indep]** = a third party measured it; **[unverified]** = I could not trace it to a primary page; **[inference]** = my reading of code or architecture, not a claim anyone made. Builds on `5-speech-to-speech.md`; it does not repeat the cloud options.
+Research snapshot, November 2026. Figures are from the cited sources unless marked as measured; nothing here was benchmarked by this project.
+
+Read-only: model cards, READMEs, changelogs, GitHub issues, one NVIDIA source file, HF API listings, `gh` stats. Nothing downloaded, installed or run. Tags: **[vendor]** = the model's own authors; **[indep]** = a third party measured it; **[unverified]** = I could not trace it to a primary page; **[inference]** = my reading of code or architecture, not a claim anyone made. Builds on `5-speech-to-speech.md`; it does not repeat the cloud options.
 
 ## Headline
 
 **No local full-duplex model on a Mac has a documented, supported way to speak given text verbatim as of 2026-11-22.** Two have the mechanism inside their own code and need a patch: NemotronLabs VoiceChat (NVIDIA's CUDA reference wrapper already forces pre-tokenised text into the agent's text channel, which its TTS then speaks; the Mac ports were not checked and soniqo's has no scripted speech) and Sophon-Realtime's Mac engine (the talker reads the thinker's text word for word). On a Mac the same gap covers interim acks and progress lines, not just the final summary. So the recommended design is a **split front**: a local full-duplex model handles conversation, acks, backchannels and barge-in, and Claude's ~35-word summary is spoken by a deterministic path, either a forced-text patch into the front's own voice or a separate local TTS fed into the same echo-cancellation reference.
 
-Corrections to the leads in the brief:
+Corrections to claims in earlier summaries:
 - **Sophon on Mac cannot delegate yet.** The Mac README says "Camera input, tool calls and zero-shot voice cloning are not in the Mac version yet". Live mode needs the CUDA engine's tool bridge on `PORT+700`. Live mode also speaks results "in its own words", so it is not verbatim even on CUDA (sophon-realtime `mac/README.md`, `live/README.md`, read 2026-11-22). The Mac 4B latency of 0.3 to 0.5 s was measured on an **M4 Max with MLX memory capped at 10.5 GB and simulated audio**, with no live microphone [vendor].
 - **VoiceChat on Mac does not keep talking while a tool runs.** Soniqo's runtime "freezes the shared language and EAR-TTS timeline while the external result is pending", the default tool timeout is 15 s, at most five tools are allowed, and the frame p95 is 76 to 78 ms against an 80 ms deadline on an M5 Pro [indep, soniqo docs 2026-11-20].
 - **Duopra is Linux/CUDA only.** The weights are gated, the runtime is verified only on an A800, and the repo asserts no blanket licence.
@@ -41,15 +43,15 @@ Common backend for all of them: a small local service wraps the Claude Agent SDK
 - Unknown: the result must arrive when the front is idle; whether forcing text mid-listen confuses its turn state is untested.
 
 **Sophon-Realtime Mac (32B Flash-4bit).**
-- Delegation: none today. Either wait for the Mearman fork (tool calls into `mac/`, then the Live adapter), or run a side channel: our own ASR on the mic stream (`mlx-audio` Qwen3-ASR, as that fork does) plus an intent rule outside the model.
+- Delegation: none today. Either wait for the Mearman fork (tool calls into `mac/`, then the Live adapter), or run a side channel: an ASR of your own on the mic stream (`mlx-audio` Qwen3-ASR, as that fork does) plus an intent rule outside the model.
 - Readback: patch `mac/engine.py` to enqueue Claude's text to the talker as a turn that is "already written" [inference]. The vendor's ASR check that speech follows the text word for word is the best evidence of any candidate that the path is faithful.
 - Watch issue #15 for an official `say`.
 - Strength: the best conversational brain on a Mac, which matters for the chit-chat around Claude's work.
 
-**Duopra.** It is wired exactly as the brief describes (`query(task)` with an OpenAI-compatible backend URL), so a thin OpenAI-compatible shim in front of the Agent SDK would drop in. But it runs only on CUDA, and it paraphrases results ("Done, it's $99"). It is not usable on the M5 Max without porting the runtime to llama.cpp-omni or vllm-metal.
+**Duopra.** It is wired the way the design above describes (`query(task)` with an OpenAI-compatible backend URL), so a thin OpenAI-compatible shim in front of the Agent SDK would drop in. But it runs only on CUDA, and it paraphrases results ("Done, it's $99"). It is not usable on a Mac without porting the runtime to llama.cpp-omni or vllm-metal.
 
 **Separate TTS (fallback, works with any front).**
-- Route Claude's summary to a local TTS via mlx-audio. Per `2-tts-models.md`, no local open model ships an Australian preset: use Qwen3-TTS VoiceDesign ("Australian male, relaxed") or a consented clone. Kokoro is US/UK only.
+- Route Claude's summary to a local TTS via mlx-audio. Per `2-tts-models.md`, no local open model ships an Australian preset. If a specific accent is wanted, use Qwen3-TTS VoiceDesign (for example "Australian male, relaxed") or a consented clone. Kokoro is US/UK only.
 - Duck or mute the front's output while it plays.
 - Feed the TTS audio into the **same AEC reference** as the front's output. If you don't, the front hears Claude's summary as the user talking.
 - Tell the front what was said, as a tool result or injected text, so its next turn has the context.
@@ -59,7 +61,7 @@ Common backend for all of them: a small local service wraps the Claude Agent SDK
 1. **NemotronLabs VoiceChat 11B via soniqo speech-swift.**
    - It is the only candidate that runs on a Mac **today** with all four of full duplex, a native tool channel, MCP and AEC.
    - It has independent Apple Silicon measurements (M5 Pro, RTF 0.92).
-   - NVIDIA's own code shows how to force exact text through its voice. It fits in ~9 GB, leaving the M5 Max plenty of headroom.
+   - NVIDIA's own code shows how to force exact text through its voice. It fits in ~9 GB, leaving plenty of headroom on a high-memory Mac.
    - Weaknesses: a 9B brain with FDB v3 Pass@1 33%, so it will sometimes misroute or forget to delegate; speech freezes during tool waits; English only; no published speaker-mode AEC test.
 2. **Sophon-Realtime Mac 32B Flash-4bit.**
    - It has the best open conversational quality, with VoiceBench 82.8, built-in AEC3 on speakers, and a Python engine whose talker already reads given text word for word.
@@ -81,14 +83,14 @@ If the forced-text patch on VoiceChat or Sophon gives garbled audio, a WER over 
 
 If even that is too fiddly, drop to the plain cascade from reports 1 to 4: `huggingface/speech-to-speech` on a Mac (Parakeet + Smart Turn + Qwen3.5-4B MLX + Qwen3-TTS, OpenAI Realtime protocol, tool calls). Use a tiny local LLM as router, and have the TTS read Claude's text directly. That gives up full-duplex feel but guarantees verbatim.
 
-## Afternoon experiments on the M5 Max
+## Afternoon experiments on a high-memory Mac
 
-Each needs installs (brew, uv, model downloads ~10 to 30 GB). Name them in the plan so the permission classifier sees them: `brew install speech` (soniqo CLI, macOS 15+; or `make build` in a speech-swift checkout); `bash mac/install.sh` in sophon-realtime; `uv tool install mlx-audio`. Mise/uv rules apply to the Python pieces.
+Each needs installs (brew, uv, model downloads ~10 to 30 GB): `brew install speech` (soniqo CLI, macOS 15+; or `make build` in a speech-swift checkout); `bash mac/install.sh` in sophon-realtime; `uv tool install mlx-audio`.
 
 1. **VoiceChat delegation loop (2 h).**
    - Run `speech voice-chat --mcp-config <file> --mcp-write-policy deny` with an MCP config that exposes a stub `ask_claude_code` (returns a ticket in 200 ms) and `status`, both read-only. 
    - Script 20 spoken requests: 10 that should delegate, 5 that should not, and 5 with mid-sentence corrections.
-   - Measure: RTF on the M5 Max; misrouted or missed calls; freeze length; self-interruption on **laptop speakers** vs headset; whether corrected arguments survive.
+   - Measure: RTF on the test Mac; misrouted or missed calls; freeze length; self-interruption on **laptop speakers** vs headset; whether corrected arguments survive.
    - Pass: RTF < 0.85, ≥ 9/10 delegated, 0 self-interrupts on speakers.
 2. **Verbatim fidelity test (2 h; the one that decides the design).**
    - Take 20 real Claude Code Stop-hook summaries rich in paths, identifiers, numbers and version strings.
