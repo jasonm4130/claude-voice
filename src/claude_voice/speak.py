@@ -34,17 +34,20 @@ def stop_playback() -> None:
     PID_FILE.unlink(missing_ok=True)
 
 
-def speak(text: str) -> None:
+def load_tts():
+    """Load Phonon and the configured voice; return (tts, voice name or None)."""
     import ptts  # imported late: loading it is the slow part
 
     tts = ptts.TTS(lang="en")
-    voice = None
     custom = voice_file()
     if custom:
         tts.add_voice("custom", str(custom))
-        voice = "custom"
-    elif os.environ.get("CLAUDE_VOICE_NAME"):
-        voice = os.environ["CLAUDE_VOICE_NAME"]
+        return tts, "custom"
+    return tts, os.environ.get("CLAUDE_VOICE_NAME") or None
+
+
+def speak(text: str) -> None:
+    tts, voice = load_tts()
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(suffix=".wav", dir=STATE_DIR, delete=False) as wav:
@@ -66,17 +69,66 @@ def speak(text: str) -> None:
         wav_path.unlink(missing_ok=True)
 
 
+def doctor() -> int:
+    """Print one line per check; return 1 if any required check fails."""
+    import shutil
+
+    ok = True
+
+    def report(passed: bool, label: str, detail: str = "", required: bool = True) -> None:
+        nonlocal ok
+        mark = "ok  " if passed else ("FAIL" if required else "note")
+        ok = ok and (passed or not required)
+        print(f"{mark} {label}" + (f": {detail}" if detail else ""))
+
+    report(sys.platform == "darwin", "macOS", sys.platform)
+    report(shutil.which("afplay") is not None, "afplay on PATH")
+    report(shutil.which("uv") is not None, "uv on PATH")
+    report(
+        os.environ.get("CLAUDE_VOICE") == "1",
+        "CLAUDE_VOICE=1 in this shell",
+        "hooks stay silent without it",
+        required=False,
+    )
+    custom = voice_file()
+    named = os.environ.get("CLAUDE_VOICE_NAME")
+    if custom:
+        report(True, "voice", str(custom))
+    else:
+        report(True, "voice", f"catalog voice {named}" if named else "Phonon default (no voice file found)")
+
+    try:
+        start = time.perf_counter()
+        tts, voice = load_tts()
+        loaded = time.perf_counter() - start
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        wav = STATE_DIR / "doctor.wav"
+        start = time.perf_counter()
+        kwargs = {"voice": voice} if voice else {}
+        seconds = tts.save(str(wav), "Claude voice is working.", **kwargs)
+        took = time.perf_counter() - start
+        wav.unlink(missing_ok=True)
+        report(True, "Phonon", f"loaded in {loaded:.2f} s; {seconds:.1f} s of speech in {took:.2f} s")
+    except Exception as exc:  # report, do not crash
+        report(False, "Phonon", f"{type(exc).__name__}: {exc}")
+
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="claude-voice", description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
     say = sub.add_parser("say", help="speak text (from arguments or stdin)")
     say.add_argument("text", nargs="*")
     sub.add_parser("stop", help="stop whatever is playing")
+    sub.add_parser("doctor", help="check the setup and time a test line")
     args = parser.parse_args(argv)
 
     if args.cmd == "stop":
         stop_playback()
         return 0
+    if args.cmd == "doctor":
+        return doctor()
     text = " ".join(args.text) if args.text else sys.stdin.read()
     if text.strip():
         speak(text.strip())
