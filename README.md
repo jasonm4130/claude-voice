@@ -137,7 +137,6 @@ Speech is generated locally. The hook reads only the hook payload Claude Code se
 
 - Push-to-talk dictation with a local speech-to-text model, such as Qwen3-ASR 0.6B on MLX
 - Spoken permission prompts that name the command and what it changes
-- A full-duplex speech-to-speech front that hands work to Claude Code (see research report 8)
 
 ## Development
 
