@@ -119,18 +119,31 @@ def clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def cached(model_id: str) -> str:
+    """The local snapshot if there is one, so later starts make no network calls."""
+    from huggingface_hub import snapshot_download
+
+    try:
+        return snapshot_download(model_id, local_files_only=True)
+    except Exception:  # not cached yet, or a local path: let mlx-audio fetch or open it
+        return model_id
+
+
 class Transcriber:
     def __init__(self, model_id: str | None = None):
         from mlx_audio.stt import load
 
-        self.model = load(model_id or stt_model())
+        self.model = load(cached(model_id or stt_model()))
 
     def __call__(self, samples) -> str:
+        if len(samples) < SAMPLE_RATE * MIN_SPEECH_SECONDS:
+            return ""  # a tap, not a hold
         if not samples.any():
             print(MIC_HINT, file=sys.stderr)
             return ""
         speech = trim_silence(samples)
         if speech is None:
+            print("no speech heard", file=sys.stderr)
             return ""
         return clean_text(self.model.generate(speech, language="English").text)
 
@@ -238,12 +251,13 @@ def run(events: queue.Queue, recorder, transcribe, insert) -> None:
             print(f"{event}: {type(exc).__name__}: {exc}", file=sys.stderr)
 
 
-def check_keys(keys: tuple[str, ...]) -> None:
+def check_keys(keys: tuple[str, ...]) -> tuple[str, ...]:
     from pynput.keyboard import Key
 
     for name in keys:
         if len(name) != 1 and name not in Key.__members__:
             raise ValueError(f"unknown key {name!r} in CLAUDE_VOICE_HOTKEY")
+    return tuple(name if len(name) == 1 else Key[name].name for name in keys)  # alt_l is reported as alt
 
 
 def watch_hotkey(keys: tuple[str, ...], events: queue.Queue):
@@ -268,10 +282,15 @@ def watch_hotkey(keys: tuple[str, ...], events: queue.Queue):
 
 
 def main(file: str | None = None, do_paste: bool = False) -> int:
+    events: queue.Queue = queue.Queue()
     try:
-        keys = parse_hotkey(os.environ.get("CLAUDE_VOICE_HOTKEY"))
         if not file:
-            check_keys(keys)
+            keys = check_keys(parse_hotkey(os.environ.get("CLAUDE_VOICE_HOTKEY")))
+            listener = watch_hotkey(keys, events)  # before the model, so a missing permission shows at once
+            if not listener.running or not listener.IS_TRUSTED:
+                listener.stop()
+                print(INPUT_HINT, file=sys.stderr)
+                return 1
         transcribe = Transcriber()
     except ImportError:
         print(NO_EXTRA, file=sys.stderr)
@@ -290,11 +309,6 @@ def main(file: str | None = None, do_paste: bool = False) -> int:
             paste(text)
         return 0
 
-    events: queue.Queue = queue.Queue()
-    listener = watch_hotkey(keys, events)
-    if not listener.running or not listener.IS_TRUSTED:
-        print(INPUT_HINT, file=sys.stderr)
-        return 1
     print(f"listening: hold {'+'.join(keys)} to talk, Ctrl-C to quit", file=sys.stderr)
     try:
         run(events, Recorder(), transcribe, paste)

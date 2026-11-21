@@ -129,6 +129,20 @@ def wer(ref, hyp):
     return row[-1] / len(r)
 
 
+def test_short_tap_is_ignored_without_a_model(capsys):
+    np = pytest.importorskip("numpy")
+    transcriber = listen.Transcriber.__new__(listen.Transcriber)  # no model: it must not be reached
+    assert transcriber(np.zeros(0, np.float32)) == ""
+    assert capsys.readouterr().err == ""
+
+
+def test_check_keys_uses_reported_names():
+    pytest.importorskip("pynput")
+    assert listen.check_keys(("alt_l", "alt_r", "e")) == ("alt", "alt_r", "e")
+    with pytest.raises(ValueError):
+        listen.check_keys(("hyper",))
+
+
 @pytest.mark.skipif(
     sys.platform != "darwin" or os.environ.get("CLAUDE_VOICE_ROUNDTRIP") != "1",
     reason="downloads models; set CLAUDE_VOICE_ROUNDTRIP=1 on a Mac with the listen extra",
